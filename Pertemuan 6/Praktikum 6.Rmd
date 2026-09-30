@@ -1,0 +1,436 @@
+---
+title: "Tugas Praktikum 6"
+author: "Tri Ananda Marpaung | M0401241098"
+output:
+  html_document:
+    toc: true
+    toc_float:
+      collapsed: false
+      smooth_scroll: true
+    number_sections: false
+    theme: flatly
+---
+
+```{r}
+library(ggplot2)
+```
+
+```{r}
+library(tsibble)
+```
+
+```{r}
+library(MASS)
+library(forecast)
+```
+```{r}
+library(TSA)
+```
+
+```{r}
+library(TTR)
+```
+```{r}
+library(aTSA)
+```
+```{r}
+library(graphics)
+```
+```{r}
+library(readxl)
+```
+ 
+```{r}
+PM25 <- read_excel("C:/Users/Dewi Lestari Natalia/Downloads/PM25_Anggota_5.xlsx", skip = 2)
+# Lihat struktur data
+head(PM25)
+str(PM25)
+```
+```{r}
+str(PM25)
+```
+```{r}
+PM25$Tanggal <- as.Date(PM25$Tanggal)
+
+PM25$PM25 <- as.numeric(PM25[[3]])
+
+# Cek data
+head(PM25)
+summary(PM25$PM25)
+```
+
+# 1. Ekplorasi Data
+# 1.1 Plot Data Penuh
+```{r}
+PM25.ts <- ts(PM25$PM25)
+
+plot.ts(
+  PM25.ts,
+  lty = 1,
+  xlab = "Waktu",
+  ylab = "PM2.5 (µg/m³)",
+  main = "Plot Data PM2.5"
+)
+```
+
+# 1.2 Plot Data Latih
+```{r}
+n <- length(PM25$PM25)
+
+n_train <- floor(0.86 * n)
+
+n_train
+PM25train <- PM25$PM25[1:n_train]
+
+train.ts <- ts(PM25train)
+
+plot.ts(
+  train.ts,
+  lty = 1,
+  xlab = "Waktu",
+  ylab = "PM2.5 (µg/m³)",
+  main = "Plot PM2.5 Data Latih"
+)
+```
+Berdasarkan plot data latih PM2.5, pola pergerakan data pada periode pelatihan relatif menggambarkan karakteristik deret waktu secara keseluruhan. Data menunjukkan fluktuasi dari waktu ke waktu.
+
+# 1.3 Plot Data Uji
+```{r}
+PM25test <- PM25$PM25[(n_train + 1):n]
+
+test.ts <- ts(PM25test)
+
+plot.ts(
+  test.ts,
+  lty = 1,
+  xlab = "Waktu",
+  ylab = "PM2.5 (µg/m³)",
+  main = "Plot PM2.5 Data Uji"
+)
+```
+Berdasarkan plot data uji PM2.5, terlihat bahwa data uji tetap menunjukkan fluktuasi nilai dari waktu ke waktu.
+
+# 2. Uji Stasioneritas Data
+# 2.1 Plot ACF
+```{r}
+acf(
+  train.ts,
+  main = "ACF Data PM2.5"
+)
+```
+Plot menunjukkan Pola menurun secara perlahan(tails off slowly) mengindikasikan data tidak stasioner.
+# 2.2 Uji ADF
+```{r}
+tseries::adf.test(train.ts)
+```
+H0 : Data tidak stasioner dalam rataan
+H1 : Data stasioner dalam rataan
+
+Berdasarkan uji ADF, didapat p-value sebesar 0.04383 yang lebih kecil dari taraf nyata 5% sehingga Tolak H0 dan menandakan data stasioner dalam rataan. 
+
+# 2.3 Plot Box-Cox
+```{r}
+index <- seq(1:length(train.ts))
+
+bc <- boxcox(
+  train.ts ~ index,
+  lambda = seq(0.5, 2, by = 0.1)
+)
+```
+
+Berdasarkan plot Box-Cox, diperoleh nilai λ optimum sekitar 0,7 yang ditunjukkan oleh titik maksimum kurva log-likelihood. Interval kepercayaan 95% untuk λ berada sekitar 0,7 hingga 1,1. Karena λ = 1 masih berada dalam interval kepercayaan 95%, maka tidak terdapat bukti yang cukup kuat bahwa transformasi terhadap data diperlukan.
+
+```{r}
+# Selang kepercayaan 95% untuk lambda
+ci_lambda <- bc$x[bc$y > max(bc$y) - 0.5 * qchisq(0.95, df = 1)]
+
+# Batas bawah dan batas atas
+ci_lower <- min(ci_lambda)
+ci_upper <- max(ci_lambda)
+
+c(Batas_Bawah = ci_lower, Batas_Atas = ci_upper)
+```
+# 3. Penanganan Ketidakstasioneran Data
+
+```{r}
+train.diff <- diff(
+  train.ts,
+  differences = 1
+)
+head(train.diff)
+length(train.diff)
+
+plot.ts(
+  train.diff,
+  lty = 1,
+  xlab = "Waktu",
+  ylab = "Difference PM2.5",
+  main = "Plot Difference PM2.5 Orde 1"
+)
+```
+
+# 3.1 Plot ACF
+```{r}
+acf(train.diff)
+ main = "ACF Difference PM2.5"
+```
+Terlihat bahwa autokorelasi hanya signifikan beberapa lag awal dan kemudian mengalami cut-off. Hal tersebut mengindikasikan bahwa data hasil differencing orde 1 ttelah menjadi stasioner dalam rataan.
+
+# 3.2 Uji ADF
+```{r}
+tseries::adf.test(train.diff)
+```
+H0 : Data tidak stasioner dalam rataan 
+H1 : Data stasioner dalam rataan
+p- Value sebesar 0.01 lebih kecil dari 0.05 sehingga Tolak H0 atau data stasioner dalam rataan.
+```{r}
+# 1. Sesuaikan panjang index karena differencing menghilangkan 1 observasi awal
+index_diff <- seq(1:length(train.diff))
+
+# Cek nilai minimum
+min_val <- min(train.diff)
+min_val
+
+# Jika ada nilai <= 0, tambahkan konstanta
+if (min_val <= 0) {
+  
+  c <- abs(min_val) + 1
+  
+  train.diff_shifted <- train.diff + c
+  
+} else {
+  
+  train.diff_shifted <- train.diff
+  
+}
+min(train.diff_shifted)
+
+# 3. Plot Box-Cox pada data yang sudah di-shift
+bc_diff <- boxcox(
+  train.diff_shifted ~ index_diff,
+  lambda = seq(0.5, 2, by = 0.1)
+)
+
+```
+```{r}
+# 4. Nilai lambda optimum (rounded)
+lambda_opt_diff <- bc_diff$x[which.max(bc_diff$y)]
+print(paste("Lambda optimum setelah diff:", lambda_opt_diff))
+```
+```{r}
+# 5. Selang kepercayaan 95% untuk lambda
+ci_lambda_diff <- bc_diff$x[bc_diff$y > max(bc_diff$y) - 0.5 * qchisq(0.95, df = 1)]
+
+# Batas bawah dan batas atas
+ci_lower_diff <- min(ci_lambda_diff)
+ci_upper_diff <- max(ci_lambda_diff)
+
+c(Batas_Bawah = ci_lower_diff, Batas_Atas = ci_upper_diff)
+```
+# 4. Identifikasi Model
+# 4.1 Plot ACF
+```{r}
+acf(train.diff)
+```
+Berdasarkan plot ACF data PM2.5 setelah dilakukan differencing orde 1, sebagian besar nilai autokorelasi berada dalam batas signifikansi 95%. Terdapat beberapa spike yang melewati batas signifikansi, terutama pada lag ke-4 yang menunjukkan adanya autokorelasi negatif yang signifikan pada lag tersebut.
+
+# 4.2 Plot PACF
+```{r}
+pacf(train.diff)
+```
+terdapat beberapa spike yang melewati batas signifikansi, terutama pada lag ke-4 dan beberapa lag lainnya. Pola PACF tidak menunjukkan cut-off yang jelas pada lag awal sehingga orde AR belum dapat ditentukan secara langsung hanya berdasarkan PACF.
+
+```{r}
+library(TSA)
+```
+# 4.3 Plot EACF
+```{r}
+eacf(train.diff)
+```
+# 5. Pendugaan Parameter Model Tentatif
+# 5.1 ARIMA(0,1,1)
+```{r}
+model1.da=Arima(train.diff, order=c(0,0,1),method="ML")
+summary(model1.da) #AIC=1123.04
+```
+```{r}
+lmtest::coeftest(model1.da) #seluruh parameter signifikan
+```
+# 5.2 ARIMA(1,1,0)
+```{r}
+model2.da=Arima(train.diff, order=c(1,0,0),method="ML")
+summary(model2.da) #AIC=1123.23
+```
+```{r}
+lmtest::coeftest(model2.da) #seluruh parameter signifikan
+```
+# 5.3 ARIMA(1,1,1)
+```{r}
+model3.da=Arima(train.diff, order=c(1,0,1),method="ML")
+summary(model3.da) #AIC=1109.19
+```
+```{r}
+lmtest::coeftest(model3.da) #tidak ada parameter signifikan
+```
+# 5.4 ARIMA(1,1,2)
+```{r}
+model5.da=Arima(train.diff, order=c(1,0,2),method="ML")
+summary(model5.da) #AIC=1109.98
+```
+```{r}
+lmtest::coeftest(model5.da) #terdapat parameter tidak signifikan
+```
+
+# 5.5 ARIMA(2,1,2)
+```{r}
+model6.da=Arima(train.diff, order=c(2,0,2),method="ML")
+summary(model6.da) #AIC=1110.89
+```
+```{r}
+lmtest::coeftest(model6.da) #NaN
+```
+# 6. Ringkasan AIC
+```{r}
+model_tentatif <- data.frame(
+  Model = c("ARIMA(0,1,1)","ARIMA(1,1,0)","ARIMA(1,1,1)", "ARIMA(1,1,2)",
+            "ARIMA(2,1,2)"),
+  AIC   = c(AIC(model1.da),AIC(model2.da), AIC(model3.da), AIC(model5.da), AIC(model6.da)),
+  BIC   = c(BIC(model1.da),BIC(model2.da), BIC(model3.da), BIC(model5.da), BIC(model6.da))
+)
+
+model_tentatif
+```
+Berdasarkan pendugaan parameter di atas, nilai AIC terkecil dimiliki oleh model ARIMA(1,1,1) dan parameter model ARIMA(1,1,1) juga seluruhnya signifikan sehingga model yang dipilih adalah model ARIMA(1,1,1).
+
+# 7. Analisis Sisaan
+# 7.1 Eksplorasi Sisaan
+```{r}
+sisaan.da <- model1.da$residuals
+
+par(mfrow = c(2,2),    
+    mar = c(4,4,2,1),  
+    oma = c(0,0,2,0))  
+
+# Q-Q Plot
+qqnorm(sisaan.da, main = "Normal Q-Q Plot")
+qqline(sisaan.da, col = "blue", lwd = 2)
+
+# Plot Sisaan vs Waktu
+plot(sisaan.da, type = "p",
+     main = "Plot Sisaan vs Waktu",
+     xlab = "Waktu", ylab = "Sisaan")
+
+# ACF
+acf(sisaan.da, main = "ACF Sisaan")
+
+# PACF
+pacf(sisaan.da, main = "PACF Sisaan")
+```
+# 7.2 Uji Normal
+```{r}
+#1) Sisaan Menyebar Normal 
+ks.test(sisaan.da,"pnorm")  #gagal tolak H0 > sisaan menyebar normal
+```
+Uji Kolmogorov-Smirnov(KS)
+
+H0 : Sisaan menyebar normal
+H1 : Sisaan tidak menyebar normal
+
+Berdasarkan uji KS tersebut, didapat, p-value sebesar 0.00 yang kurang dari taraf nyata 5% sehingga tolak H0 dan menandakan bahwa sisaan tidak menyebar normal. Hal ini sesuai dengan hasil eksplorasi menggunakan plot kuantil-kuantil normal 
+```{r}
+#2) Sisaan saling bebas/tidak ada autokorelasi 
+Box.test(sisaan.da, type = "Ljung")  #gagal tolak H0 > sisaan saling bebas
+```
+H0 : Ragam sisaan homogen 
+H1 : Ragam sisaan tidak homogen
+ p-value = 0.8725 > 0.05 sehingga gagal Tolak H0 dan menandakan bahwa ragam sisaan homogen.
+ 
+```{r}
+#4) Nilai tengah sisaan sama dengan nol 
+t.test(sisaan.da, mu = 0, conf.level = 0.95)  #gagal tolak h0 > nilai tengah sisaan sama dengan 0
+```
+Uji-t 
+H0 : nilai tengah sisaan sama dengan 0
+H1 : nilai tengah sisaan tidak sama dengan 0
+
+Berdasarkan uji- tersebut, didapat p-value sebesar 0.9929 > 0.05 
+sehingga gagal Tolak H0 dan menandakan nilai tengah sisaan sama dengan 0.
+
+# 8. Ovefitting
+```{r}
+model3.da=Arima(train.diff, order=c(0,0,2),method="ML")
+summary(model3.da) #AIC=1118.71
+```
+```{r}
+lmtest::coeftest(model3.da) #tidak ada parameter signifikan
+```
+# 9. Model Terbaik: ARIMA(0,1,1)
+```{r}
+model1.da=Arima(train.diff, order=c(0,0,1),method="ML")
+summary(model1.da)
+```
+```{r}
+lmtest::coeftest(model1.da)
+```
+# 10. Peramalan dengan Forecasting
+```{r}
+# ---FORECAST---
+ramalan.da <- forecast::forecast(model1.da, h = length(test.ts))
+```
+
+```{r}
+data.ramalan.da <- ramalan.da$mean
+plot(ramalan.da)
+```
+```{r}
+# Inverse differencing
+pt_akhir_train <- tail(train.ts, 1) 
+
+forecast <- diffinv(data.ramalan.da, differences = 1, xi = pt_akhir_train)
+hasil <- forecast[-1]
+hasil <- forecast[1:length(test.ts)]
+
+# Bandingkan aktual vs forecast
+perbandingan.da <- cbind(
+  Aktual   = test.ts,
+  Forecast = hasil
+)
+
+print(head(perbandingan.da, 10))   
+```
+```{r}
+# Hitung akurasi
+akurasi_test <- accuracy(hasil, test.ts)
+akurasi_test
+```
+```{r}
+# Plot seluruh data PM2.5
+ts.plot(
+  PM25.ts,
+  col = "black",
+  lty = 1,
+  xlab = "Waktu",
+  ylab = "PM2.5 (µg/m³)",
+  main = "Data Aktual dan Forecast PM2.5"
+)
+
+# Garis forecast
+lines(
+  135:(134 + length(hasil)),
+  hasil,
+  col = "blue",
+  lty = 2,
+  lwd = 2
+)
+
+# Legend
+legend(
+  "topleft",
+  legend = c("Data Aktual", "Forecast"),
+  col = c("black", "blue"),
+  lty = c(1, 2),
+  lwd = c(1, 2),
+  bty = "n"
+)
+```
+
