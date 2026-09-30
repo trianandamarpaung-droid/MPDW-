@@ -1,0 +1,504 @@
+---
+title: "Tugas Praktikum 4"
+author: "Tri Ananda Marpaung | M0401241098"
+output:
+  html_document:
+    toc: true
+    toc_float:
+      collapsed: false
+      smooth_scroll: true
+    number_sections: false
+    theme: flatly
+---
+
+## Proses MA(2)
+```{r}
+ma2 <- arima.sim(list(order=c(0,0,2), ma=c(0.4, 0.6)), n=300)
+ma2
+```
+# Plot Time Series
+```{r}
+ts.plot(ma2)
+```
+Berdasarkan plot time series, terlihat bahwa data MA(2) yang dibangkitkan stasioner dalam rataan relatif konstan.
+
+# Plot ACF
+```{r}
+acf(ma2,lag.max = 20)
+```
+
+Berdasarkan plot ACF tersebut, terlihat bahwa plot ACF cuts off di lag ke-2, nilai autokorekasi cenderung mendekati nol dan tidak menunjukkan pola ketergantungan yang kuat.
+
+# Plot PACF
+```{r}
+pacf(ma2)
+```
+
+Berdasarkan plot PACF tersebut, terlihat bahwa plot PACF cenderung tails off menurun secara bertahap
+
+# Plot EACF
+```{r}
+TSA::eacf(ma2)
+```
+Berdasarkan tabel EACF, pola nilai yang terbentuk memberikan indikasi bahwa komponen autoregressive tidak diperlukan, sedangkan komponen moving average berada pada orde sekitar 2. Hasil tersebut mengarah pada identifikasi model MA(2), sehingga konsisten dengan model yang digunakan dalam proses simulasi.
+
+# Scatterplot Antar Lag
+# Korelasi antara Yt dengan Yt-1
+```{r}
+#Yt
+yt_ma2 <- ma2[-1]
+yt_ma2
+```
+```{r}
+#Yt-1
+yt_1_ma2 <- ma2[-300]
+yt_1_ma2
+```
+```{r}
+plot(y=yt_ma2,x=yt_1_ma2)
+```
+
+
+
+```{r}
+cor(yt_ma2,yt_1_ma2)
+```
+Berdasarkan scatterplot antara Yₜ dan Yₜ₋₁, terlihat adanya hubungan positif antara kedua variabel. Nilai korelasi empiris relatif dekat dengan nilai teoritis.
+
+
+Korelasi antara Yt dengan Yt−2
+```{r}
+#Yt
+yt_ma2 <- ma2[-c(1,2)]
+yt_ma2
+```
+```{r}
+#Yt-2
+yt_2_ma2 <- ma2[-c(299,300)]
+yt_2_ma2
+```
+```{r}
+plot(y=yt_ma2,x=yt_2_ma2)
+```
+
+```{r}
+cor(yt_ma2,yt_2_ma2)
+```
+Berdasarkan scatterplot tersebut, terlihat bahwa cenderung terdapat hubungan positif antara Yt dengan Yt−2. Nilai empiris relatif mendekati nilai teoritis.
+
+Korelasi antara Yt dengan Yt−3
+```{r}
+#Yt
+yt_ma2 <- ma2[-c(1,2)]
+yt_ma2
+```
+```{r}
+# Yt-3
+yt_3_ma2 <- ma2[-c(298,299,300)]
+yt_3_ma2 
+```
+```{r}
+# Yt
+yt_ma2 <- ma2[4:300]
+
+# Yt-3
+yt_3_ma2 <- ma2[1:297]
+
+# Scatter plot
+plot(yt_3_ma2, yt_ma2,
+     main = "Scatter Plot Yt dengan Yt-3",
+     xlab = "Yt-3",
+     ylab = "Yt",
+     pch = 19)
+```
+```{r}
+cor(yt_ma2,yt_3_ma2)
+```
+Berdasarkan scatterplot antara Yₜ dan Yₜ₋₃, tidak terlihat adanya pola hubungan linear yang kuat.
+
+## Proses AR
+Proses AR dapat dituliskan sebagai berikut:
+
+Pembangkitan Proses AR
+```{r}
+set.seed(123)
+```
+```{r}
+n <- 300
+```
+
+```{r}
+phi1 <- 0.5
+phi2 <- 0.2
+```
+
+```{r}
+e <- rnorm(n + 100, mean = 0, sd = 1)
+```
+```{r}
+# Tempat menyimpan data
+y <- numeric(n + 100)
+```
+
+```{r}
+# Bangkitkan AR(2)
+for (t in 3:(n + 100)) {
+  y[t] <- phi1*y[t-1] + phi2*y[t-2] + e[t]
+}
+```
+
+
+```{r}
+# Buang 100 data awal sebagai burn-in
+y_manual <- y[101:(n + 100)]
+
+length(y_manual)
+```
+
+# Plot Time Series
+```{r}
+ar2 <- arima.sim(
+  list(order = c(2,0,0),
+       ar = c(0.5, 0.2)),
+  n = 300
+)
+ar2
+```
+Yt​=0.5Yt−1​+0.2Yt−2​+ϵt​
+
+Nilai autokorelasi awalnya:
+
+$$ \rho_1=\frac{\phi_1}{1-\phi_2} =\frac{0.5}{1-0.2} =0.625 $$
+
+Kemudian:
+
+$$ \rho_2=\phi_1\rho_1+\phi_2 $$ $$ \rho_2=(0.5)(0.625)+0.2 =0.5125 $$
+
+Jadi nanti hasil korelasi simulasi pada lag 1 dan 2 bisa dibandingkan dengan 0,625 dan 0,5125.
+
+```{r}
+library(ggplot2)
+
+df <- data.frame(
+  waktu = 1:300,
+  Yt = y_manual
+)
+
+ggplot(df, aes(x = waktu, y = Yt)) +
+  geom_line() +
+  labs(
+    title = "Time Series AR(2)",
+    x = "Waktu",
+    y = "Yt"
+  ) +
+  theme_minimal()
+```
+# Plot ACF
+```{r}
+acf(
+  y_manual,
+  main = "ACF AR(2)"
+)
+```
+# Plot PACF
+```{r}
+pacf(
+  y_manual,
+  main = "PACF AR(2)"
+)
+```
+
+# Plot EACF
+```{r}
+library(TSA)
+
+eacf(y_manual)
+```
+## Scatterplot Antar Lag
+# Korelasi antara Yt dengan Yt−1
+
+```{r}
+df_lag <- data.frame(
+  Yt = y_manual[4:300],
+  Yt_1 = y_manual[3:299],
+  Yt_2 = y_manual[2:298],
+  Yt_3 = y_manual[1:297]
+)
+```
+```{r}
+plot(
+  df_lag$Yt_1,
+  df_lag$Yt,
+  pch = 19,
+  xlab = expression(Y[t-1]),
+  ylab = expression(Y[t]),
+  main = expression("Scatter Plot " * Y[t] * " vs " * Y[t-1])
+)
+```
+```{r}
+plot(
+  df_lag$Yt_1,
+  df_lag$Yt,
+  pch = 19,
+  main = "Yt vs Yt-1",
+  xlab = "Yt-1",
+  ylab = "Yt"
+)
+```
+
+# Korelasi antara Yt dengan Yt−2
+```{r}
+plot(
+  df_lag$Yt_2,
+  df_lag$Yt,
+  pch = 19,
+  xlab = "Yt-2",
+  ylab = "Yt",
+  main = "Yt vs Yt-2"
+)
+```
+
+# Korelasi antara Yt dengan Yt−3
+```{r}
+plot(
+  df_lag$Yt_3,
+  df_lag$Yt,
+  pch = 19,
+  xlab = "Yt-3",
+  ylab = "Yt",
+  main = "Yt vs Yt-3"
+)
+```
+```{r}
+acf_result <- acf(
+  y_manual,
+  lag.max = 10,
+  plot = FALSE
+)
+
+acf_result$acf
+```
+```{r}
+par(mfrow = c(1,3))
+
+plot(ar2[2:300], ar2[1:299],
+     xlab = expression(Y[t-1]),
+     ylab = expression(Y[t]),
+     main = "Lag 1")
+
+plot(ar2[3:300], ar2[1:298],
+     xlab = expression(Y[t-2]),
+     ylab = expression(Y[t]),
+     main = "Lag 2")
+
+plot(ar2[4:300], ar2[1:297],
+     xlab = expression(Y[t-3]),
+     ylab = expression(Y[t]),
+     main = "Lag 3")
+
+par(mfrow = c(1,1))
+```
+Berdasarkan scatterplot antara Yₜ dengan nilai lag-nya, hubungan antara Yₜ dan Yₜ₋₁ serta Yₜ dan Yₜ₋₂ menunjukkan pola hubungan yang masih terlihat. Hal tersebut sesuai dengan model AR(2) karena nilai Yₜ secara langsung dipengaruhi oleh dua nilai sebelumnya, yaitu Yₜ₋₁ dan Yₜ₋₂.
+
+Pada lag ke-3, hubungan masih dapat terlihat secara tidak langsung karena dalam proses AR(2), pengaruh dari nilai masa lalu tidak langsung terputus setelah lag ke-2. Pengaruh tersebut diteruskan melalui hubungan antarperiode. Oleh karena itu, keberadaan korelasi pada lag yang lebih besar tetap memungkinkan pada model AR(2).
+
+
+```{r}
+acf(y_manual, lag.max = 10)
+```
+```{r}
+yt_ar2 <- ar2[3:300]
+
+yt_1_ar2 <- ar2[2:299]
+yt_2_ar2 <- ar2[1:298]
+
+cor(yt_ar2, yt_1_ar2)
+cor(yt_ar2, yt_2_ar2)
+```
+Kesimpulan
+persamaan Yₜ = 0,5Yₜ₋₁ + 0,2Yₜ₋₂ + εₜ
+
+Berdasarkan fungsi ACF, korelasi menurun secara bertahap (tailing off), sedangkan fungsi PACF menunjukkan pola cut off setelah lag ke-2. Pola tersebut sesuai dengan karakteristik proses AR(2).
+# Fungsi pembangkitan ARMA
+
+Proses ARMA(2,2) Melalui program R: • Bangkitkan model ARMA(2,2) dengan 𝜃1 = 0.4, 𝜃2 = 0.6 ,𝜙1 = 0.5 dan 𝜙2 = 0.2 sebanyak 300 data (Manual dan arima.sim) • Buat plot time series, plot ACF, plot PACF dan plot EACF. Idenifikasi apakah data tersebut stasioner • Buat scatterplot antara 𝑌𝑡 dengan 𝑌𝑡−1, 𝑌𝑡 dengan 𝑌𝑡−2 serta 𝑌𝑡 dengan 𝑌𝑡−3 • Hitung autokorelasi masing masing baik dari data bangkitan maupun secara teoritis
+
+```{r}
+set.seed(123)
+
+n <- 300
+
+# Parameter
+phi1 <- 0.5
+phi2 <- 0.2
+theta1 <- 0.4
+theta2 <- 0.6
+```
+```{r}
+# Bangkitkan error
+e <- rnorm(n, mean = 0, sd = 1)
+
+# Tempat menyimpan Yt
+y_manual <- numeric(n)
+
+# Inisialisasi
+y_manual[1] <- e[1]
+y_manual[2] <- phi1*y_manual[1] + e[2] + theta1*e[1]
+```
+
+```{r}
+# Proses ARMA(2,2)
+for (t in 3:n) {
+  
+  y_manual[t] <- phi1*y_manual[t-1] +
+                 phi2*y_manual[t-2] +
+                 e[t] +
+                 theta1*e[t-1] +
+                 theta2*e[t-2]
+}
+```
+```{r}
+# Jadikan time series
+y_manual <- ts(y_manual)
+
+# Lihat 10 data pertama
+head(y_manual, 10)
+```
+```{r}
+y_manual[t] <- phi1*y_manual[t-1] +
+               phi2*y_manual[t-2] +
+               e[t] +
+               theta1*e[t-1] +
+               theta2*e[t-2]
+```
+# Bangkitkan menggunakan arima.sim()
+```{r}
+set.seed(123)
+
+y_sim <- arima.sim(
+  model = list(
+    ar = c(0.5, 0.2),
+    ma = c(0.4, 0.6)
+  ),
+  n = 300
+)
+
+# Lihat data
+head(y_sim, 10)
+```
+# Plot Time Series
+```{r}
+plot(
+  y_sim,
+  main = "Time Series ARMA(2,2)",
+  ylab = "Yt",
+  xlab = "Waktu"
+)
+```
+```{r}
+plot(
+  y_manual,
+  main = "Time Series ARMA(2,2) - Manual",
+  ylab = "Yt",
+  xlab = "Waktu"
+)
+```
+Berdasarkan plot deret waktu hasil simulasi ARMA(2,2) sebanyak 300 pengamatan, data menunjukkan fluktuasi di sekitar nilai rata-rata yang relatif konstan dan tidak menunjukkan adanya tren naik atau turun yang sistematis
+
+Pola tersebut sesuai dengan karakteristik proses ARMA(2,2), di mana nilai Yₜ dipengaruhi oleh dua nilai masa lalu melalui komponen autoregressive serta error pada periode sekarang dan dua periode sebelumnya melalui komponen moving average.
+
+
+
+# Plot ACF
+```{r}
+acf(
+  y_sim,
+  main = "ACF ARMA(2,2)"
+)
+```
+Berdasarkan plot ACF, autokorelasi pada beberapa lag awal masih terlihat kemudian secara bertahap menurun pada lag-lag berikutnya.
+
+# Plot PACF
+```{r}
+pacf(
+  y_sim,
+  main = "PACF ARMA(2,2)"
+)
+```
+Berdasarkan plot PACF, nilai autokorelasi parsial menunjukkan pola yang secara bertahap menurun pada beberapa lag dan tidak menunjukkan cut off yang tegas setelah lag ke-2. Terdapat kombinasi antara komponen autoregresive dan moving average
+
+# Plot EACF
+```{r}
+library(TSA)
+
+eacf(y_sim)
+```
+Berdasarkan hasil EACF, pola yang terbentuk memberikan indikasi adanya komponen autoregressive dan moving average secara bersamaan.
+
+# Cek stasioneritas secara formal
+```{r}
+library(tseries)
+
+adf.test(y_sim)
+```
+p-value < 0.05 maka, hipotesis nol memiliki unit root atau tidak statisioner ditolak
+# Scatterplot \(Y_t\) dengan Y
+t−1
+```{r}
+yt <- as.numeric(y_sim)
+
+yt_lag1 <- yt[-length(yt)]
+yt_now1 <- yt[-1]
+
+plot(
+  yt_lag1,
+  yt_now1,
+  pch = 19,
+  main = expression(paste("Scatterplot ", Y[t], " vs ", Y[t-1])),
+  xlab = expression(Y[t-1]),
+  ylab = expression(Y[t])
+)
+```
+Scatterplot antara Yₜ dan Yₜ₋₁ menunjukkan adanya pola hubungan antara nilai saat ini dengan nilai satu periode sebelumnya. Hubungan tersebut sesuai dengan adanya komponen autoregressive orde pertama dalam model ARMA(2,2), sehingga nilai Yₜ dipengaruhi oleh Yₜ₋₁.
+
+
+# Scatterplot \(Y_t\) dengan Y_2
+t−2
+```{r}
+yt_lag2 <- yt[1:(length(yt)-2)]
+yt_now2 <- yt[3:length(yt)]
+
+plot(
+  yt_lag2,
+  yt_now2,
+  pch = 19,
+  main = expression(paste("Scatterplot ", Y[t], " vs ", Y[t-2])),
+  xlab = expression(Y[t-2]),
+  ylab = expression(Y[t])
+)
+```
+
+Scatterplot antara Yₜ dan Yₜ₋₂ menunjukkan adanya hubungan antara nilai saat ini dengan nilai dua periode sebelumnya. Hal tersebut sesuai dengan komponen autoregressive orde kedua pada model ARMA(2,2), di mana Yₜ dipengaruhi secara langsung oleh Yₜ₋₂.
+
+
+# Scatterplot \(Y_t\) dengan Y_3
+t−3
+	​
+
+```{r}
+yt_lag3 <- yt[1:(length(yt)-3)]
+yt_now3 <- yt[4:length(yt)]
+
+plot(
+  yt_lag3,
+  yt_now3,
+  pch = 19,
+  main = expression(paste("Scatterplot ", Y[t], " vs ", Y[t-3])),
+  xlab = expression(Y[t-3]),
+  ylab = expression(Y[t])
+)
+```
+Scatterplot antara Yₜ dan Yₜ₋₃ dapat menunjukkan hubungan yang masih tersisa meskipun Yₜ₋₃ bukan merupakan komponen yang secara langsung masuk ke dalam persamaan model. Hal tersebut dapat terjadi karena pengaruh nilai masa lalu diteruskan melalui struktur autoregressive sehingga ketergantungan dapat tetap muncul pada lag yang lebih tinggi.
+
+Dengan demikian, keberadaan hubungan pada lag ke-3 tidak bertentangan dengan karakteristik ARMA(2,2).
+	
