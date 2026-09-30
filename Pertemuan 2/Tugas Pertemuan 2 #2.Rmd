@@ -1,0 +1,201 @@
+---
+title: "Tugas Kuliah 2 No. 2"
+author: "Tri Ananda Marpaung | M0401241098"
+output:
+  html_document:
+    toc: true
+    toc_float:
+      collapsed: false
+      smooth_scroll: true
+    number_sections: false
+    theme: flatly
+---
+
+# 1. Persiapan Data
+```{r}
+data <- data.frame(
+  Year = 1975:2014,
+  Sales = c(
+    11.7, 12.2, 12.3, 12.8, 13.1, 13.6, 13.9, 14.4,
+    14.7, 15.3, 15.5, 15.8, 16.1, 16.6, 16.9, 16.7,
+    16.9, 17.4, 17.6, 17.9, 18.0, 17.9, 18.0, 18.2,
+    18.2, 18.3, 18.6, 19.2, 19.3, 19.5, 19.2, 19.3,
+    19.5, 20.0, 20.0, 19.9, 19.8, 19.9, 20.2, 21.0
+  ),
+  Advertising = c(
+    9.4, 9.6, 10.0, 10.4, 10.8, 10.9, 11.7, 12.2,
+    12.5, 12.9, 13.0, 13.2, 13.8, 14.2, 14.6, 14.4,
+    15.0, 15.4, 15.7, 15.9, 15.9, 16.0, 16.3, 16.2,
+    16.8, 17.3, 17.6, 18.1, 18.3, 18.5, 18.7, 18.9,
+    19.2, 20.0, 20.0, 20.3, 20.4, 21.0, 21.5, 22.1
+  )
+)
+
+head(data)
+```
+
+# 2. Ekplorasi Data
+```{r}
+plot(
+  data$Year,
+  data$Sales,
+  type = "o",
+  xlab = "Tahun",
+  ylab = "Sales",
+  main = "Plot Sales Tahun 1975–2014"
+)
+```
+```{r}
+plot(
+  data$Year,
+  data$Advertising,
+  type = "o",
+  xlab = "Tahun",
+  ylab = "Advertising",
+  main = "Plot Advertising Tahun 1975–2014"
+)
+```
+# 3. Membentuk Model Regresi Awal
+```{r}
+model_awal <- lm(
+  Sales ~ Advertising,
+  data = data
+)
+
+summary(model_awal)
+```
+
+                        ŷ = 6.0089 + 0.7079Xt
+  Artinya, setiap kenaikan 1 satuan Advertising diperkirakan meningkatkan Sales sebesar 0.7079
+  Model memiliki:
+  R-sq = 0.9603
+  F-Statistic = 0.9593
+  p-value < 0.001
+  
+Jadi, secara hubungan linear, Advertising sangat kuat menjelaskan variasi Sales.
+
+# 4. Plot Sisaan
+```{r}
+# Mengambil sisaan
+res_awal <- residuals(model_awal)
+
+# Plot sisaan terhadap waktu
+plot(
+  data$Year,
+  res_awal,
+  type = "o",
+  xlab = "Tahun",
+  ylab = "Sisaan",
+  main = "Plot Sisaan Model Awal"
+)
+
+abline(h = 0, lty = 2)
+```
+Jika sisaan benar-benar bebas, titik sisaan seharusnya menyebar secara acak di sekitar nol. Pada data ini, sisaan menunjukkan pola yang cukup sistematis/ berurutan, bukan penyebaran acak sepenuhnya. Hal tersebut menjadi indikasi awal adalah autokorelasi positif.
+
+# 5. Uji Durbin-Watson
+```{r}
+library(lmtest)
+```
+
+```{r}
+library(lmtest)
+
+dwtest(model_awal)
+```
+Nilai Durbin-Watson --> d = 0.17956
+Nilai tersebut sangat dekat dengan 0.
+
+Dengan n = 40 dan k = 1, nilai d = 0,1796 menunjukkan autokorelasi positif yang kuat. 
+
+# 6. Penanganan menggunakan Cochrane-Orcutt
+
+```{r}
+# Sisaan model awal
+e <- residuals(model_awal)
+
+# Estimasi phi awal
+phi_lama <- 0
+
+for(i in 1:100){
+
+  # Menduga phi
+  phi_baru <- sum(e[-1] * e[-length(e)]) /
+              sum(e[-length(e)]^2)
+
+  # Transformasi Y dan X
+  Y_star <- data$Sales[-1] -
+            phi_baru * data$Sales[-nrow(data)]
+
+  X_star <- data$Advertising[-1] -
+            phi_baru * data$Advertising[-nrow(data)]
+
+  # Regresi data transformasi
+  model_star <- lm(
+    Y_star ~ X_star
+  )
+
+  # Membentuk sisaan baru
+  beta0 <- coef(model_star)[1] /
+           (1 - phi_baru)
+
+  beta1 <- coef(model_star)[2]
+
+  e_baru <- data$Sales -
+            (beta0 + beta1 * data$Advertising)
+
+  # Cek konvergensi
+  if(abs(phi_baru - phi_lama) < 0.000001){
+    break
+  }
+
+  phi_lama <- phi_baru
+  e <- e_baru
+}
+
+phi_baru
+beta0
+beta1
+```
+Hasil akhirnya 
+
+                     ŷ = 10.26422 + 0.4864Xt
+
+Jadi, setelah menganangani autokorelasi, koefisien Advertising berubah dari 0.7079 menjadi 0.4864
+
+# 7. Model Hasil Transformasi
+
+```{r}
+model_star <- lm(
+  Y_star ~ X_star
+)
+
+summary(model_star)
+```
+
+                     ŷ = 10.26422 + 0.4864Advertising
+
+# 8.cek autokorelasi                    
+```{r}
+res_co <- residuals(model_star)
+
+plot(
+  data$Year[-1],
+  res_co,
+  type = "o",
+  xlab = "Tahun",
+  ylab = "Sisaan Transformasi",
+  main = "Plot Sisaan Setelah Cochrane-Orcutt"
+)
+
+abline(h = 0, lty = 2)
+```
+```{r}
+dwtest(model_star)
+```
+   DW Cochrane-Orcutt = 2.0202   < Model Awal = 0.1796
+   
+   Karena nilai DW setelah transformasi mendekati 2, maka tidak terdapat indikasi kuat autokorelasi sisaan. 
+                      d = 2(1 - r1)
+Sehingga nilai DW yang mendekati 2 menunjukkan autokorelasi lag-1 yang mendekati nol.
+Dengan demikian, metode Cochrane-Orcutt berhasil menangani permasalahan autokorelasi pada model regresi deret waktu.

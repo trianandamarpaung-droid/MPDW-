@@ -1,0 +1,150 @@
+---
+title: "Tugas Prak Pertemuan 2"
+author: "Tri Ananda Marpaung"
+date: "2026-08-27"
+output: html_document
+---
+
+```{r}
+library(readxl)
+data <- read_excel("C:/Users/Dewi Lestari Natalia/OneDrive/文档/SEMESTER 5/Metode Peramalan Deret Waktu/Data Tugas Pertemuan 2.xlsx")
+data
+```
+```{r}
+str(data)
+summary(data)
+```
+```{r}
+model_awal <- lm(Market ~ Price, data = data)
+summary(model_awal)
+```
+```{r}
+coef(model_awal)
+```
+```{r}
+b0 <- coef(model_awal)[1]
+b1 <- coef(model_awal)[2]
+
+cat("Persamaan regresi:\n")
+cat("Market =", round(b0, 4),
+    ifelse(b1 >= 0, "+", "-"),
+    abs(round(b1, 4)), "* Price\n")
+```
+#Plot data terhadap waktu
+```{r}
+plot(data$Period, data$Market,
+     type = "o",
+     pch = 19,
+     xlab = "Period",
+     ylab = "Market",
+     main = "Market Share terhadap Waktu")
+```
+```{r}
+plot(data$Period, data$Price,
+     type = "o",
+     pch = 19,
+     xlab = "Period",
+     ylab = "Price",
+     main = "Price terhadap Waktu")
+```
+#Plot Sisaan
+```{r}
+sisaan <- residuals(model_awal)
+
+plot(data$Period, sisaan, 
+     type = "o",
+     pch = 19,
+     xlab = "Sisaan",
+     main = "Plot Sisaan Model")
+
+abline(h = 0, lty = 2)
+```
+#Uji Durbin-Watson
+```{r}
+library(lmtest)
+
+```
+```{r}
+dwtest(model_awal)
+```
+```{r}
+dwtest(model_awal, alternative = "greater")
+```
+Nilai DW = 1,13 --> inkonklusif
+
+#Keputusan Durbin -Watson
+
+#Penanganan Menggunakan Cochrane-Orcutt
+```{r}
+Y <- data$Market
+X <- data$Price
+```
+
+```{r}
+model <- lm(Y ~ X)
+```
+
+```{r}
+beta_old <- coef(model)
+```
+```{r}
+for (i in 1:100){
+   e <- Y - (beta_old[1] + beta_old[2] * X)
+  
+  # 2. Menduga phi
+  phi <- sum(e[2:length(e)] * e[1:(length(e)-1)]) /
+         sum(e[1:(length(e)-1)]^2)
+  
+  # 3. Transformasi Y dan X
+  Y_star <- Y[2:length(Y)] -
+            phi * Y[1:(length(Y)-1)]
+  
+  X_star <- X[2:length(X)] -
+            phi * X[1:(length(X)-1)]
+  
+  # 4. Regresi data hasil transformasi
+  model_star <- lm(Y_star ~ X_star)
+  
+  # 5. Koefisien hasil transformasi
+  beta0_star <- coef(model_star)[1]
+  beta1_star <- coef(model_star)[2]
+  
+  # 6. Mengembalikan beta0
+  beta_new <- c(
+    beta0_star / (1 - phi),
+    beta1_star
+  )
+  
+  # 7. Cek konvergensi
+  if (max(abs(beta_new - beta_old)) < 0.000001) {
+    beta_old <- beta_new
+    break
+  }
+  
+  beta_old <- beta_new
+}
+
+cat("Iterasi =", i, "\n")
+cat("Phi =", phi, "\n")
+cat("Beta 0 =", beta_old[1], "\n")
+cat("Beta 1 =", beta_old[2], "\n")
+
+```
+#Cek Autokorelasi
+```{r}
+resid_co <- residuals(model_star)
+
+plot(2:20, resid_co,
+     type = "o",
+     pch = 19,
+     xlab = "Period",
+     ylab = "Sisaan",
+     main = "Plot Sisaan Setelah Cochrane-Orcutt")
+
+abline(h = 0, lty = 2)
+```
+```{r}
+dwtest(model_star)
+```
+Hasil: DW = 1,958 --> Tidak Autokorelasi
+
