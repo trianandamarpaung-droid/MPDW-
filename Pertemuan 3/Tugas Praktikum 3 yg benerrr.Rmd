@@ -1,0 +1,909 @@
+---
+title: "Tugas Kuliah 3"
+author: "Tri Ananda Marpaung | M0401241098"
+output:
+  html_document:
+    toc: true
+    toc_float:
+      collapsed: false
+      smooth_scroll: true
+    number_sections: false
+    theme: flatly
+---
+
+# Soal Nomor 1
+```{r}
+data <- rio::import("C:/Users/Dewi Lestari Natalia/Downloads/Data_Latihan_Distributed_Lag.xlsx")
+str(data)
+```
+```{r}
+data
+```
+
+```{r}
+head(data)
+names(data)
+```
+
+
+```{r}
+data <- data.frame(
+  Yt = data$Market_share_Y,
+  Xt = data$Price_X
+)
+```
+
+```{r}
+train <- data[1:15, ]
+test <- data[16:20, ]
+```
+
+```{r}
+
+library(dLagM)
+library(ggplot2)
+```
+
+# Model Koyck
+
+Model Koyck digunakan untuk pengaruh variabel bebas yang tidak hanya terjadi pada periode sekarang, tetapi juga menyebar ke periode berikutnya dengan pola yang menurun.
+```{r}
+model.koyck <- koyckDlm(
+  x = train$Xt,
+  y = train$Yt
+)
+
+summary(model.koyck)
+```
+
+# Forecast
+```{r}
+fore.koyck <- dLagM::forecast(
+  model = model.koyck,
+  x = test$Xt,
+  h = 5
+)
+
+fore.koyck
+```
+
+Hasil estimasi model Koyck menunjukkan: 
+* Intercept = 15.4328
+* Yt-1 = 0.3651
+* Xt = -13.4703
+* Adjusted R^2 = 0.8861
+* Wald test p-value = 1.16 x 10^-5
+
+Koefisien Yt-1 sebesar 0.3651 menunjukkan adanya penagruh nilai varibael dependen sebelumnya terhadap periode sekarang. Nilai parameter tersebut juga menunjukkan adanya pola persistensi dalam model. 
+
+Namun, secara individual koefisien Yt-1 dan Xt memiliki p-value masing-masing 0.493 dan 0.353 sehingga tidak signifikan pada taraf 5%.
+
+Meskipun demikian, uji Wald secara keseluruhsn signifikan, sehingga model masih memiliki hubungan secara simultan.
+ 
+# DLM
+
+```{r}
+model.dlm <- dLagM::dlm(
+  x = train$Xt,
+  y = train$Yt,
+  q = 3
+)
+
+summary(model.dlm)
+```
+```{r}
+fore.dlm <- dLagM::forecast(
+  model = model.dlm,
+  x = test$Xt,
+  h = 5
+)
+
+fore.dlm
+```
+Model DLM(3) memasukkan pengaruh variabel bebas sampai 3 lag.
+
+Hasil estimasi menunjukkan:
+
+Intercept = 27.975
+\(X_t=-27.521\)
+\(X_{t-1}=3.765\)
+\(X_{t-2}=2.805\)
+\(X_{t-3}=-4.800\)
+
+Koefisien \(X_t\) signifikan dengan p-value 0.000213, sedangkan lag Advertising lainnya tidak signifikan secara individual.
+
+Hal ini menunjukkan bahwa Advertising pada periode sekarang memiliki pengaruh yang signifikan terhadap variabel dependen, sedangkan pengaruh Advertising pada beberapa periode sebelumnya belum menunjukkan bukti yang cukup kuat secara individual.
+
+
+```{r}
+model.ardl <- dLagM::ardlDlm(
+  x = train$Xt,
+  y = train$Yt,
+  p = 1,
+  q = 1
+)
+
+summary(model.ardl)
+```
+```{r}
+class(model.ardl)
+```
+```{r}
+methods(class = class(model.ardl))
+```
+```{r}
+methods(class = class(model.ardl))
+```
+```{r}
+args(dLagM::forecast)
+```
+```{r}
+model.ardl <- dLagM::ardlDlm(
+  x = train$Xt,
+  y = train$Yt,
+  p = 1,
+  q = 1
+)
+```
+
+```{r}
+class(model.ardl)
+```
+```{r}
+# ARDL(1,1)
+ardl11 <- dLagM::ardlDlm(
+  x = train$Xt,
+  y = train$Yt,
+  p = 1,
+  q = 1
+)
+```
+
+```{r}
+# ARDL(1,2)
+ardl12 <- dLagM::ardlDlm(
+  x = train$Xt,
+  y = train$Yt,
+  p = 1,
+  q = 2
+)
+```
+
+```{r}
+# ARDL(2,1)
+ardl21 <- dLagM::ardlDlm(
+  x = train$Xt,
+  y = train$Yt,
+  p = 2,
+  q = 1
+)
+```
+
+```{r}
+summary(ardl11)
+summary(ardl12)
+summary(ardl21)
+```
+```{r}
+AIC(ardl11)
+AIC(ardl12)
+AIC(ardl21)
+```
+```{r}
+BIC(ardl11)
+BIC(ardl12)
+BIC(ardl21)
+```
+```{r}
+hasil.model <- data.frame(
+  Model = c(
+    "Koyck",
+    "DLM(3)",
+    "ARDL terbaik"
+  ),
+  
+  AIC = c(
+    AIC(model.koyck),
+    AIC(model.dlm),
+    AIC(ardl11)
+  ),
+  
+  BIC = c(
+    BIC(model.koyck),
+    BIC(model.dlm),
+    BIC(ardl11)
+  )
+)
+
+hasil.model
+
+```
+
+Model ini memasukkan:
+
+Advertising periode sekarang
+Advertising lag 1
+Sales/Market Share lag 1
+
+Hasil estimasi menunjukkan:
+
+Intercept = 18.1366
+\(X_t=-23.5593\), signifikan
+\(X_{t-1}=7.2280\), tidak signifikan
+\(Y_{t-1}=0.3028\), tidak signifikan
+
+Model menggunakan data training dan kemudian digunakan untuk melakukan forecasting pada data testing
+
+
+
+
+# Perbandingan Koyck, DLM, dan ARDL
+
+```{r}
+hasil.model <- data.frame(
+  Model = c(
+    "Koyck",
+    "DLM(3)",
+    "ARDL(1,1)",
+    "ARDL(1,2)",
+    "ARDL(2,1)"
+  ),
+  
+  AIC = c(
+    AIC(model.koyck),
+    AIC(model.dlm),
+    AIC(ardl11),
+    AIC(ardl12),
+    AIC(ardl21)
+  ),
+  
+  BIC = c(
+    BIC(model.koyck),
+    BIC(model.dlm),
+    BIC(ardl11),
+    BIC(ardl12),
+    BIC(ardl21)
+  )
+)
+
+hasil.model
+```
+```{r}
+hasil.model <- hasil.model[order(hasil.model$AIC), ]
+
+hasil.model
+```
+Karena AIC dan BIC paling kecil adalah DLM(3), maka berdasarkan kriteria informasi, DLM(3) merupakan model terbaik di antara model yang dibandingkan pada tahap ini.
+
+
+# Adjusted R-Square
+
+```{r}
+summary(model.koyck)
+```
+```{r}
+summary(model.dlm)
+```
+```{r}
+summary(ardl11)
+summary(ardl12)
+summary(ardl21)
+```
+
+
+```{r}
+fore.koyck <- dLagM::forecast(
+  model.koyck,
+  x = test$Xt,
+  h = 5
+)
+
+fore.koyck
+```
+
+```{r}
+fore.dlm <- dLagM::forecast(
+  model.dlm,
+  x = test$Xt,
+  h = 5
+)
+
+fore.dlm
+```
+
+```{r}
+hasil.forecast <- data.frame(
+  Periode = 16:20,
+  Aktual = test$Yt,
+  Koyck = as.numeric(fore.koyck$forecasts),
+  DLM = as.numeric(fore.dlm$forecasts)
+)
+
+hasil.forecast
+```
+```{r}
+RMSE <- function(actual, forecast) {
+  sqrt(mean((actual - forecast)^2))
+}
+
+MAE <- function(actual, forecast) {
+  mean(abs(actual - forecast))
+}
+```
+
+# Evaluasi Data Frame
+```{r}
+evaluasi <- data.frame(
+  Model = c("Koyck", "DLM(3)"),
+  RMSE = c(
+    RMSE(test$Yt, as.numeric(fore.koyck$forecasts)),
+    RMSE(test$Yt, as.numeric(fore.dlm$forecasts))
+  ),
+  MAE = c(
+    MAE(test$Yt, as.numeric(fore.koyck$forecasts)),
+    MAE(test$Yt, as.numeric(fore.dlm$forecasts))
+  )
+)
+
+evaluasi
+```
+Karena Koyck memiliki RMSE dan MAE paling kecil, maka berdasarkan akurasi forecasting, model terbaik adalah: Koyck
+
+
+```{r}
+model.ardl <- dLagM::ardlDlm(
+  x = train$Xt,
+  y = train$Yt,
+  p = 1,
+  q = 1
+)
+
+summary(model.ardl)
+```
+```{r}
+model.ardl <- dLagM::ardlDlm(
+  formula = Yt ~ Xt,
+  data = train,
+  p = 1,
+  q = 1
+)
+
+summary(model.ardl)
+```
+```{r}
+x.new <- matrix(
+  test$Xt,
+  nrow = 1,
+  ncol = 5
+)
+
+x.new
+```
+```{r}
+fore.ardl <- dLagM::forecast(
+  model = model.ardl,
+  x = x.new,
+  h = 5
+)
+```
+```{r}
+fore.ardl
+```
+```{r}
+fore.ardl$forecasts
+```
+```{r}
+forecast.ardl <- as.numeric(fore.ardl$forecasts)
+
+forecast.ardl
+```
+```{r}
+length(forecast.ardl)
+```
+```{r}
+hasil.forecast <- data.frame(
+  Periode = 16:20,
+  Aktual = test$Yt,
+  Koyck = as.numeric(fore.koyck$forecasts),
+  DLM = as.numeric(fore.dlm$forecasts),
+  ARDL = forecast.ardl
+)
+
+hasil.forecast
+```
+
+
+# Evaluasi Seluruh Model
+```{r}
+evaluasi <- data.frame(
+  Model = c("Koyck", "DLM(3)", "ARDL(1,1)"),
+  
+  RMSE = c(
+    RMSE(test$Yt, hasil.forecast$Koyck),
+    RMSE(test$Yt, hasil.forecast$DLM),
+    RMSE(test$Yt, hasil.forecast$ARDL)
+  ),
+  
+  MAE = c(
+    MAE(test$Yt, hasil.forecast$Koyck),
+    MAE(test$Yt, hasil.forecast$DLM),
+    MAE(test$Yt, hasil.forecast$ARDL)
+  )
+)
+
+evaluasi
+```
+```{r}
+evaluasi[order(evaluasi$RMSE), ]
+```
+```{r}
+library(ggplot2)
+
+grafik <- rbind(
+  data.frame(
+    Periode = 16:20,
+    Nilai = hasil.forecast$Aktual,
+    Model = "Aktual"
+  ),
+  data.frame(
+    Periode = 16:20,
+    Nilai = hasil.forecast$Koyck,
+    Model = "Koyck"
+  ),
+  data.frame(
+    Periode = 16:20,
+    Nilai = hasil.forecast$DLM,
+    Model = "DLM(3)"
+  ),
+  data.frame(
+    Periode = 16:20,
+    Nilai = hasil.forecast$ARDL,
+    Model = "ARDL(1,1)"
+  )
+)
+
+ggplot(grafik, aes(x = Periode, y = Nilai, color = Model)) +
+  geom_line(linewidth = 1) +
+  geom_point(size = 2.5) +
+  scale_color_manual(
+    values = c(
+      "Aktual" = "black",
+      "Koyck" = "red",
+      "DLM(3)" = "blue",
+      "ARDL(1,1)" = "green"
+    )
+  ) +
+  labs(
+    title = "Aktual vs Forecast Market Share",
+    x = "Periode",
+    y = "Market Share",
+    color = "Model"
+  ) +
+  theme_minimal() +
+  theme(
+    plot.title = element_text(
+      hjust = 0.5,
+      face = "bold"
+    ),
+    legend.position = "bottom"
+  )
+```
+Berdasarkan AIC dan BIC, DLM(3) merupakan model terbaik karena memiliki nilai AIC sebesar 14,4199 dan BIC sebesar 17,3293, yang merupakan nilai terendah dibandingkan model Koyck dan ARDL(1,1). Namun, berdasarkan evaluasi kemampuan forecasting menggunakan data testing, model Koyck memberikan performa terbaik karena menghasilkan nilai RMSE sebesar 0,4666 dan MAE sebesar 0,4336, yang merupakan nilai terkecil. Oleh karena itu, apabila kriteria utama adalah akurasi peramalan, model Koyck dipilih sebagai model terbaik.
+
+
+
+# Soal nomor 2
+```{r}
+data <- data.frame(
+  Year = 1975:2014,
+  Sales = c(
+    11.7, 12.2, 12.3, 12.8, 13.1, 13.6, 13.9, 14.4,
+    14.7, 15.3, 15.5, 15.8, 16.1, 16.6, 16.9, 16.7,
+    16.9, 17.4, 17.6, 17.9, 18.0, 17.9, 18.0, 18.2,
+    18.2, 18.3, 18.6, 19.2, 19.3, 19.5, 19.2, 19.3,
+    19.5, 20.0, 20.0, 19.9, 19.8, 19.9, 20.2, 21.0
+  ),
+  Advertising = c(
+    9.4, 9.6, 10.0, 10.4, 10.8, 10.9, 11.7, 12.2,
+    12.5, 12.9, 13.0, 13.2, 13.8, 14.2, 14.6, 14.4,
+    15.0, 15.4, 15.7, 15.9, 15.9, 16.0, 16.3, 16.2,
+    16.8, 17.3, 17.6, 18.1, 18.3, 18.5, 18.7, 18.9,
+    19.2, 20.0, 20.0, 20.3, 20.4, 21.0, 21.5, 22.1
+  )
+)
+```
+```{r}
+
+library(tseries)
+
+adf.test(data$Sales)
+adf.test(data$Advertising)
+```
+Karena \(p>0.05\), Advertising juga tidak stasioner pada level.
+
+```{r}
+library(dLagM)
+
+hasil_ardl <- data.frame(
+  Model = character(),
+  AIC = numeric(),
+  BIC = numeric(),
+  stringsAsFactors = FALSE
+)
+
+for (p in 1:5) {
+  for (q in 1:5) {
+    
+    model <- ardlDlm(
+      formula = Sales ~ Advertising,
+      data = data,
+      p = p,
+      q = q
+    )
+    
+    hasil_ardl <- rbind(
+      hasil_ardl,
+      data.frame(
+        Model = paste0("ARDL(", p, ",", q, ")"),
+        AIC = AIC(model$model),
+        BIC = BIC(model$model)
+      )
+    )
+  }
+}
+
+hasil_ardl <- hasil_ardl[order(hasil_ardl$AIC), ]
+
+hasil_ardl
+```
+Karena AIC terkecil adalah -15.30759, maka: ARDL (3,1)
+
+
+```{r}
+model_ardl <- ardlDlm(
+  formula = Sales ~ Advertising,
+  data = data,
+  p = 1,
+  q = 3
+)
+
+summary(model_ardl)
+```
+Advertising saat ini
+
+Koefisien:
+
+$$ 0.48221 $$
+
+dengan \(p=0.00149<0.05\).
+
+Artinya Advertising pada periode sekarang berpengaruh positif dan signifikan terhadap Sales.
+
+Dengan kata lain, kenaikan Advertising pada periode sekarang berkaitan dengan peningkatan Sales sekitar 0,482 satuan, dengan asumsi komponen lain dalam model tetap.
+
+Advertising lag
+
+Advertising lag 1, 2, dan 3 semuanya memiliki p-value > 0,05.
+
+Artinya, Advertising pada periode sebelumnya belum menunjukkan pengaruh yang signifikan secara individual terhadap Sales.
+
+Sales lag 1
+
+Koefisien:
+
+$$ 0.91115 $$
+
+dengan \(p<0.001\).
+
+Artinya Sales periode sebelumnya berpengaruh positif dan sangat signifikan terhadap Sales periode sekarang.
+
+Hal ini menunjukkan bahwa Sales memiliki persistensi yang kuat dari waktu ke waktu.
+
+
+```{r}
+coef(model_ardl$model)
+```
+```{r}
+summary(model_ardl$model)
+```
+```{r}
+head(hasil_ardl, 10)
+```
+```{r}
+
+library(lmtest)
+
+dwtest(model_ardl$model)
+```
+
+```{r}
+library(lmtest)
+```
+```{r}
+bgtest(model_ardl$model)
+```
+
+```{r}
+# 1. Autokorelasi - Breusch-Godfrey
+lmtest::bgtest(model_ardl$model)
+
+# 2. Autokorelasi - Durbin Watson
+lmtest::dwtest(model_ardl$model)
+
+# 3. Heteroskedastisitas - Breusch-Pagan
+lmtest::bptest(model_ardl$model)
+
+# 4. Normalitas residual
+shapiro.test(residuals(model_ardl$model))
+```
+```{r}
+par(mfrow = c(2,2))
+
+plot(model_ardl$model)
+```
+```{r}
+# Cek jumlah observasi
+nrow(data)
+
+# Cek missing value
+sum(is.na(data$Sales))
+sum(is.na(data$Advertising))
+```
+## Uji ADF pada Level
+# Sales
+
+```{r}
+library(urca)
+
+adf_sales_level <- ur.df(
+  data$Sales,
+  type = "drift",
+  lags = 1
+)
+
+summary(adf_sales_level)
+```
+# Advertising
+```{r}
+adf_adv_level <- ur.df(
+  data$Advertising,
+  type = "drift",
+  lags = 1
+)
+
+summary(adf_adv_level)
+```
+
+## Uji ADF pada first difference
+# Sales
+
+
+```{r}
+adf_sales_diff <- ur.df(
+  diff(data$Sales),
+  type = "drift",
+  lags = 1
+)
+
+summary(adf_sales_diff)
+```
+# Advertising
+```{r}
+adf_adv_diff <- ur.df(
+  diff(data$Advertising),
+  type = "drift",
+  lags = 1
+)
+
+summary(adf_adv_diff)
+```
+# Pemilihan lag ARDL
+```{r}
+# Aktifkan package
+library(dLagM)
+```
+```{r}
+ardlDlm
+```
+```{r}
+model <- ardlDlm(
+  formula = Sales ~ Advertising,
+  data = data,
+  p = 1,
+  q = 3
+)
+
+summary(model)
+```
+```{r}
+exists("ardlDlm")
+```
+```{r}
+hasil_ardl <- data.frame(
+  Model = character(),
+  AIC = numeric(),
+  BIC = numeric()
+)
+
+for (p in 1:4) {
+  for (q in 1:4) {
+    
+    model <- ardlDlm(
+      formula = Sales ~ Advertising,
+      data = data,
+      p = p,
+      q = q
+    )
+    
+    hasil_ardl <- rbind(
+      hasil_ardl,
+      data.frame(
+        Model = paste0("ARDL(", p, ",", q, ")"),
+        AIC = AIC(model$model),
+        BIC = BIC(model$model)
+      )
+    )
+  }
+}
+
+hasil_ardl <- hasil_ardl[order(hasil_ardl$AIC), ]
+
+head(hasil_ardl, 10)
+```
+
+```{r}
+library(ggplot2)
+
+ggplot(data, aes(x = Year)) +
+  geom_line(aes(y = Sales, linetype = "Sales"), linewidth = 1) +
+  geom_line(aes(y = Advertising, linetype = "Advertising"), linewidth = 1) +
+  labs(
+    title = "Perkembangan Sales dan Advertising Tahun 1975–2014",
+    x = "Tahun",
+    y = "Nilai",
+    linetype = "Variabel"
+  ) +
+  theme_minimal()
+```
+```{r}
+ggplot(data, aes(x = Advertising, y = Sales)) +
+  geom_point(size = 3) +
+  geom_smooth(method = "lm", se = FALSE) +
+  labs(
+    title = "Hubungan Advertising terhadap Sales",
+    x = "Advertising",
+    y = "Sales"
+  ) +
+  theme_minimal()
+```
+```{r}
+data_diff <- data.frame(
+  Year = data$Year[-1],
+  dSales = diff(data$Sales),
+  dAdvertising = diff(data$Advertising)
+)
+```
+
+```{r}
+ggplot(data_diff, aes(x = Year)) +
+  geom_line(aes(y = dSales, linetype = "ΔSales"), linewidth = 1) +
+  geom_line(aes(y = dAdvertising, linetype = "ΔAdvertising"), linewidth = 1) +
+  labs(
+    title = "First Difference Sales dan Advertising",
+    x = "Tahun",
+    y = "First Difference",
+    linetype = "Variabel"
+  ) +
+  theme_minimal()
+```
+```{r}
+hasil_ardl <- data.frame(
+  Model = character(),
+  p = integer(),
+  q = integer(),
+  AIC = numeric(),
+  BIC = numeric()
+)
+
+for (p in 1:4) {
+  for (q in 1:4) {
+    
+    model <- tryCatch(
+      ardlDlm(
+        formula = Sales ~ Advertising,
+        data = data,
+        p = p,
+        q = q
+      ),
+      error = function(e) NULL
+    )
+    
+    if (!is.null(model)) {
+      
+      hasil_ardl <- rbind(
+        hasil_ardl,
+        data.frame(
+          Model = paste0("ARDL(", p, ",", q, ")"),
+          p = p,
+          q = q,
+          AIC = AIC(model$model),
+          BIC = BIC(model$model)
+        )
+      )
+    }
+  }
+}
+
+hasil_ardl <- hasil_ardl[order(hasil_ardl$AIC), ]
+
+hasil_ardl
+```
+```{r}
+hasil_ardl
+```
+
+```{r}
+p_best <- hasil_ardl$p[1]
+q_best <- hasil_ardl$q[1]
+
+p_best
+q_best
+```
+
+# Model Terbaik
+```{r}
+model_terbaik <- ardlDlm(
+  formula = Sales ~ Advertising,
+  data = data,
+  p = p_best,
+  q = q_best
+)
+```
+```{r}
+summary(model_terbaik)
+```
+```{r}
+AIC(model_terbaik$model)
+BIC(model_terbaik$model)
+```
+```{r}
+res <- residuals(model_terbaik$model)
+
+data_res <- data.frame(
+  Year = tail(data$Year, length(res)),
+  Residual = as.numeric(res)
+)
+
+ggplot(data_res, aes(x = Year, y = Residual)) +
+  geom_line(linewidth = 1) +
+  geom_hline(yintercept = 0, linetype = "dashed") +
+  labs(
+    title = "Residual Model ARDL Terbaik",
+    x = "Tahun",
+    y = "Residual"
+  ) +
+  theme_minimal()
+```
+
+```{r}
+fitted <- fitted(model_terbaik$model)
+
+data_fit <- data.frame(
+  Year = tail(data$Year, length(fitted)),
+  Actual = tail(data$Sales, length(fitted)),
+  Fitted = as.numeric(fitted)
+)
+
+ggplot(data_fit, aes(x = Year)) +
+  geom_line(aes(y = Actual, linetype = "Actual"), linewidth = 1) +
+  geom_line(aes(y = Fitted, linetype = "Fitted"), linewidth = 1) +
+  labs(
+    title = "Sales Aktual vs Fitted Model ARDL Terbaik",
+    x = "Tahun",
+    y = "Sales",
+    linetype = "Series"
+  ) +
+  theme_minimal()
+```
+
+Berdasarkan uji Augmented Dickey-Fuller, Sales dan Advertising tidak stasioner pada level, tetapi keduanya menjadi stasioner setelah first difference sehingga keduanya terintegrasi pada orde satu. Selanjutnya dilakukan pemilihan orde lag ARDL berdasarkan AIC. Dari berbagai kombinasi lag yang diuji, ARDL(3,1) menghasilkan AIC terkecil, yaitu -15,30759, sehingga dipilih sebagai model terbaik. Hasil estimasi menunjukkan bahwa Advertising pada periode sekarang berpengaruh positif dan signifikan terhadap Sales, sedangkan Sales satu periode sebelumnya juga berpengaruh positif dan signifikan terhadap Sales periode sekarang. Model memiliki adjusted \(R^2\) sebesar 0,9924 dan signifikan secara simultan. Dengan demikian, ARDL(3,1) merupakan model terbaik untuk pemodelan hubungan Sales dan Advertising berdasarkan kriteria AIC.
